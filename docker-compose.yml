@@ -1,0 +1,7 @@
+services:
+  passguard:
+    build: .
+    container_name: passguard_app
+    ports:
+      - "5000:5000"
+    restart: unless-stopped

@@ -9,6 +9,7 @@ env:
   IMAGE_NAME: nastya-mak10/passguard
 
 jobs:
+  # ЭТАП 1: Тесты, сборка, сканирование и публикация
   build-test-scan:
     runs-on: ubuntu-latest
     permissions:
@@ -32,15 +33,15 @@ jobs:
       - name: Run tests
         run: python -m pytest test_app.py -v
 
-      # 1. СБОРКА БЕЗ ПУБЛИКАЦИИ (сохраняем локально)
+      # Сборка локально (без отправки в интернет)
       - name: Build Docker image locally
         uses: docker/build-push-action@v6
         with:
           context: .
-          load: true # Загружаем в локальный докер
+          load: true 
           tags: passguard:latest
 
-      # 2. СКАНИРОВАНИЕ (Если найдет уязвимости, упадет СРАЗУ)
+      # Сканирование (Гейт)
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -48,16 +49,16 @@ jobs:
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-          exit-code: '1' # Жесткий гейт
+          exit-code: '1' # Если найдет уязвимости - упадет
           ignore-unfixed: true
 
-      - name: Upload Trivy scan results to GitHub Security tab
+      - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
 
-      # 3. ПУБЛИКАЦИЯ (Выполнится ТОЛЬКО если шаг 2 прошел успешно)
+      # Публикация (выполнится ТОЛЬКО если Trivy пропустил)
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -71,3 +72,24 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # ЭТАП 2: Деплой и замена контейнера
+  deploy:
+    needs: build-test-scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR for deploy
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Deploy to Server (docker compose up -d)
+        run: |
+          echo "Скачиваем новый образ..."
+          docker compose pull
+          echo "Запускаем и замещаем старый контейнер..."
+          docker compose up -d
+          echo "Статус запущенных контейнеров:"
+          docker ps

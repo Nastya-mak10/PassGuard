@@ -1,6 +1,6 @@
 services:
   passguard:
-    build: .
+    image: ghcr.io/nastya-mak10/passguard:latest
     container_name: passguard_app
     ports:
       - "5000:5000"

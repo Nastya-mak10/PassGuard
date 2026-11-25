@@ -21,3 +21,15 @@ def test_common_password(client):
     response = client.post('/check_password', json={'password': 'password'})
     assert response.status_code == 200
     assert response.get_json()['score'] == 0
+
+def test_empty_password(client):
+    response = client.post('/check_password', json={'password': ''})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['strength'] == 'Слабый'
+
+def test_no_digits(client):
+    response = client.post('/check_password', json={'password': 'StrongPassword!'})
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "Добавьте хотя бы одну цифру." in data['feedback']

@@ -85,17 +85,14 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR for deploy
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
-      - name: Deploy to Server (docker compose up -d)
-        run: |
-          echo "Скачиваем новый образ..."
-          docker compose pull
-          echo "Запускаем и замещаем старый контейнер..."
-          docker compose up -d
-          echo "Статус запущенных контейнеров:"
-          docker ps
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /opt/passguard  # папка на сервере
+            docker compose pull
+            docker compose up -d
+            docker ps
